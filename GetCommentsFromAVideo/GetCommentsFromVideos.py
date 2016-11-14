@@ -1,20 +1,27 @@
 #!/usr/bin/env python
 
-import os
-import sys
-import time
-import json
-import requests
-import argparse
-import lxml.html
-
+import sys, time, json, requests, argparse, lxml.html, datetime, CalculateTimeForComments
 from lxml.cssselect import CSSSelector
+import CleanseCommentsText as cleanseCommentsObj
 
 YOUTUBE_COMMENTS_URL = 'https://www.youtube.com/all_comments?v={youtube_id}'
 YOUTUBE_COMMENTS_AJAX_URL = 'https://www.youtube.com/comment_ajax'
-
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36'
+THIS_TIME = int(time.time())
 
+sys.path.append('./')
+
+# A complete list of internet slang words are obtained from noslang.com
+# This file is stored in CSV format and passed as a side-effect
+# Following code loads all the internet slang and their actual meaning into a dictionary
+# In this dictionary keys are slang words and values of these keys are actual meaning of these slang
+
+internet_slang_dict = cleanseCommentsObj.readFileandReturnADict("../internet_slang.csv", "rb", '|', 0, 1, True, None)
+
+# A list of possible word contractions in english language are identified
+# and they are replaced with their full form
+
+contractions_dict = cleanseCommentsObj.readFileandReturnADict("../Contractions.csv", "rU", ',', 0, 1, True)
 
 def find_value(html, key, num_chars=2):
     pos_begin = html.find(key) + len(key) + num_chars
@@ -28,11 +35,10 @@ def extract_comments(html):
     text_sel = CSSSelector('.comment-text-content')
     time_sel = CSSSelector('.time')
     author_sel = CSSSelector('.user-name')
-
     for item in item_sel(tree):
         yield {'cid': item.get('data-cid'),
-               'text': text_sel(item)[0].text_content(),
-               'time': time_sel(item)[0].text_content().strip(),
+               'text': cleanseCommentsObj.cleanseComments(text_sel(item)[0].text_content(), internet_slang_dict, contractions_dict),
+               'time': datetime.datetime.fromtimestamp(THIS_TIME - CalculateTimeForComments.calculateTime(time_sel(item)[0].text_content().strip())).strftime("%Y-%m-%d %H:%M:%S"),
                'author': author_sel(item)[0].text_content()}
 
 
@@ -123,7 +129,6 @@ def download_comments(youtube_id, sleep=1):
                 ret_cids.append(comment['cid'])
                 yield comment
         time.sleep(sleep)
-
 
 def main(argv):
     parser = argparse.ArgumentParser(add_help=False, description=('Download Youtube comments without using the Youtube API'))
