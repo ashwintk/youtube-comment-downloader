@@ -21,7 +21,9 @@ vidMetaData = []
 vidTitleID = {}
 
 ''' This function fetches the titles of all
-      youtube videos for the given search query'''
+      youtube videos for the given search query
+      The output file is written by this function after fetching video titles from
+      all the pages'''
 
 def getTitle(youtubeVidObj):
 
