@@ -1,5 +1,9 @@
 import bs4
 import requests
+import re
+import os
+import httplib2
+import json
 
 
 
@@ -11,18 +15,13 @@ import requests
             #yt-lockup-meta-info
                   #class="yt-lockup-meta -- meta data info like date and views
 
-searchQuery = "mylapore kapaleeswarar temple"
-
-reqObject = requests.get("https://www.youtube.com/results?search_query=" + searchQuery).text
-
-#vidURL = "https://www.youtube.com/results?search_query=" + searchQuery
-
-soup = bs4.BeautifulSoup(reqObject , "html.parser")
 
 start = True
-foundNext = True
-
+vidMetaData = []
 vidTitleID = {}
+
+''' This function fetches the titles of all
+      youtube videos for the given search query'''
 
 def getTitle(youtubeVidObj):
 
@@ -56,14 +55,17 @@ def getTitle(youtubeVidObj):
 
 
       stopCrawl = youtubeObj.find_all('div' , string = 'No more results')
-      print('\n stop crawl: ' , stopCrawl)
-      print('\n next link: ' , nextLink)
+      #print('\n stop crawl: ' , stopCrawl)
+      #print('\n next link: ' , nextLink)
       if len(stopCrawl) < 1 and len(nextLink) != 0:
             getTitle(youtubeObj)
       else:
             start = False
-            foundNext = False
-            print(vidTitleID)
+            print('stopping...')
+            f = open(os.path.join('C:\\Users\\akanna\\Desktop\\My Work\\Fall 2016\\Big Data Analytics\\Google API\\' , 'videoList.json' ) , 'w' , encoding = 'cp1252' , errors = 'replace')
+            f.write(json.dumps(vidTitleID , indent = 4))
+            #f.write(str(vidTitleID))
+            f.close()
 
       div.clear()
       nextPage.clear()
@@ -71,8 +73,17 @@ def getTitle(youtubeVidObj):
 
 
 
+
+'''This function gives the following meta-data content for each YouTube Video
+
+      a) Date published
+      b) # of Views
+      c) Duration of the video
+'''
 def getVidMetaData(title , url):
 
+    print(title)
+    global vidMetaData
     vidURL = requests.get(url).text
     vidObj = bs4.BeautifulSoup(vidURL , "html.parser")
 
@@ -84,17 +95,46 @@ def getVidMetaData(title , url):
         for m in d.find_all('meta'):
             if m.has_attr('itemprop') and m.has_attr('content'):
                 if m['itemprop'] == 'datePublished':
-                    vidTitleID[title] = m['content']
+                    vidMetaData.append(m['content'])
+                if m['itemprop'] == 'interactionCount':
+                      vidMetaData.append(m['content'])
+                if m['itemprop'] == 'duration':
+                      time = re.findall('\d+' , m['content'])
+                      time = int(time[0]) + float(time[1]) / 60
+                      vidMetaData.append(time)
 
 
 
 
 
-#getVidMetaData("https://www.youtube.com/watch?v=oqFreqHc0bE")
+    vidTitleID[title] = vidMetaData
+    vidMetaData = []
 
+
+
+#getVidMetaData("Arulmigu Kapaleeswarar Temple in Mylapore,Chennai,Tamilnadu" , "https://www.youtube.com/watch?v=XCzBnciokJI")
+
+
+
+''' The code sequence starts here. The user is prompted for a search query.
+    The final list of titles and the meta-data content is saved in a JSON file.'''
 
 if start == True:
       print("starting...")
+      print('Enter serach query....')
+
+      searchQuery = input()
+
+      reqObject = requests.get("https://www.youtube.com/results?search_query=" + searchQuery).text
+
+      #vidURL = "https://www.youtube.com/results?search_query=" + searchQuery
+
+      soup = bs4.BeautifulSoup(reqObject , "html.parser")
+
+      vidTitleID = {}
+      vidMetaData = []
+
       getTitle(soup)
+
 
 
