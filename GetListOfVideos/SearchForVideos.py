@@ -8,7 +8,7 @@ searchResults = {}
 searchResults['results'] = []
 # Initialize variables for Youtube URL's, search terms & user agent
 YOUTUBE_SEARCH_URL = "https://www.youtube.com/results?search_query={SEARCH_TERM}"
-YOUTUBE_URL = "https://www.youtube.com/"
+YOUTUBE_URL = "https://www.youtube.com"
 SEARCH_TERM = ""
 USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36"
 
@@ -25,34 +25,39 @@ def ajax_request(session, url, params, data, retries=10, sleep=20):
       youtube videos for the given search query
       The output file is written by this function after fetching video titles from
       all the pages'''
+global nextLink
 
 def getTitle(youtubeVidObj):
     nextLink = ""
-    div = [d for d in youtubeVidObj.find_all('div') if d.has_attr('class')]
     nextPage = youtubeVidObj.find_all('a', class_='yt-uix-button')
+    print "Number of Links", len(nextPage)
     for n in nextPage:
         if "Next" in n.string:
             print(n['aria-label'])
             nextLink = n['href']
-        else:
-            foundNext = False
-
-    session = requests.Session()
-    session.headers['User-Agent'] = USER_AGENT
-    response = session.get(YOUTUBE_URL + nextLink)
-    reqObject = response.text
-    youtubeObj = bs4.BeautifulSoup(reqObject, "html.parser")
-
+            break
+    print nextLink
+    div = [d for d in youtubeVidObj.find_all('div') if d.has_attr('class')]
+    print "Number of div tags", len(div)
     for d in div:
         if d.has_attr('class') and 'yt-lockup-video' in d['class']:
             if 'yt-lockup-tile' in d['class']:
                 for a in d.find_all('a'):
                     if a.has_attr('title') and a.has_attr('aria-describedby') and a.has_attr('href'):
-                        getVidMetaData(a['title'], YOUTUBE_URL + a['href'])
-    stopCrawl = youtubeObj.find_all('div', string='No more results')
-    if len(stopCrawl) < 1 and len(nextLink) != 0:
-        getTitle(youtubeObj)
+                        getVidMetaData(a['title'], YOUTUBE_URL, a['href'])
+
+    session = requests.Session()
+    session.headers['User-Agent'] = USER_AGENT
+    response = session.get(YOUTUBE_URL + nextLink)
+    youtubeVidObj = bs4.BeautifulSoup(response.text, "html.parser")
+    stopCrawl = youtubeVidObj.find_all('div', string='No more results')
+
+    print "Crawling next link", len(youtubeVidObj)
+    if len(stopCrawl) < 1 and len(nextLink.strip().lstrip()) != 0:
+        print "If loop"
+        getTitle(youtubeVidObj)
     else:
+        print "Else loop"
         start = False
         with open(OUTPUT_FILE, "w+") as writeHandle:
             writeHandle.write(json.dumps(searchResults, indent = 2))
@@ -70,13 +75,17 @@ def getTitle(youtubeVidObj):
 '''
 
 
-def getVidMetaData(title, url):
+def getVidMetaData(title, url, watch_url):
     vidMetaData = {}
-    vidURL = requests.get(url).text
+    session = requests.Session()
+    session.headers['User-Agent'] = USER_AGENT
+    response = session.get(url+watch_url)
+    vidURL = response.text
     vidObj = bs4.BeautifulSoup(vidURL, "html.parser")
 
     div = [d for d in vidObj.find_all('div') if d.has_attr('class') and 'watch-main-col' in d['class']]
-    vidMetaData['title'] = str(title)
+    vidMetaData['title'] = title.encode('utf-8')
+    vidMetaData['videoID'] = (watch_url.split("?v=")[1]).encode('utf-8')
     for d in div:
         for m in d.find_all('meta'):
             if m.has_attr('itemprop') and m.has_attr('content'):
