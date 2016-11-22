@@ -10,7 +10,7 @@ searchResults['results'] = []
 YOUTUBE_SEARCH_URL = "https://www.youtube.com/results?search_query={SEARCH_TERM}"
 YOUTUBE_URL = "https://www.youtube.com/"
 SEARCH_TERM = ""
-USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36'
+USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36"
 
 def ajax_request(session, url, params, data, retries=10, sleep=20):
     for _ in range(retries):
@@ -30,9 +30,8 @@ def getTitle(youtubeVidObj):
     nextLink = ""
     div = [d for d in youtubeVidObj.find_all('div') if d.has_attr('class')]
     nextPage = youtubeVidObj.find_all('a', class_='yt-uix-button')
-    print(len(nextPage))
-    for n in nextPage[0]:
-        if "Next" in str(n.string).strip().lstrip():
+    for n in nextPage:
+        if "Next" in n.string:
             print(n['aria-label'])
             nextLink = n['href']
         else:
@@ -40,7 +39,7 @@ def getTitle(youtubeVidObj):
 
     session = requests.Session()
     session.headers['User-Agent'] = USER_AGENT
-    response = session.get(YOUTUBE_URL+ nextLink)
+    response = session.get(YOUTUBE_URL + nextLink)
     reqObject = response.text
     youtubeObj = bs4.BeautifulSoup(reqObject, "html.parser")
 
@@ -49,7 +48,7 @@ def getTitle(youtubeVidObj):
             if 'yt-lockup-tile' in d['class']:
                 for a in d.find_all('a'):
                     if a.has_attr('title') and a.has_attr('aria-describedby') and a.has_attr('href'):
-                        getVidMetaData(a['title'], "https://www.youtube.com" + a['href'])
+                        getVidMetaData(a['title'], YOUTUBE_URL + a['href'])
     stopCrawl = youtubeObj.find_all('div', string='No more results')
     if len(stopCrawl) < 1 and len(nextLink) != 0:
         getTitle(youtubeObj)
