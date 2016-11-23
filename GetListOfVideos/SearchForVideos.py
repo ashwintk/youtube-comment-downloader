@@ -28,17 +28,28 @@ def ajax_request(session, url, params, data, retries=10, sleep=20):
 global nextLink
 
 def getTitle(youtubeVidObj):
+    foundNext = True
     nextLink = ""
+    div = []
+    nextPage = []
+    stopCrawl = []
+
     nextPage = youtubeVidObj.find_all('a', class_='yt-uix-button')
-    print "Number of Links", len(nextPage)
     for n in nextPage:
-        if "Next" in n.string:
+        btnTitle = ""
+        if n.string == None and n.has_attr('title'):
+            btnTitle  = n['title']
+        else:
+            btnTitle = n.string
+
+        if not(btnTitle is None) and "Next" in btnTitle:
             print(n['aria-label'])
             nextLink = n['href']
             break
-    print nextLink
+        else:
+            foundNext = False
+
     div = [d for d in youtubeVidObj.find_all('div') if d.has_attr('class')]
-    print "Number of div tags", len(div)
     for d in div:
         if d.has_attr('class') and 'yt-lockup-video' in d['class']:
             if 'yt-lockup-tile' in d['class']:
@@ -46,25 +57,20 @@ def getTitle(youtubeVidObj):
                     if a.has_attr('title') and a.has_attr('aria-describedby') and a.has_attr('href'):
                         getVidMetaData(a['title'], YOUTUBE_URL, a['href'])
 
-    session = requests.Session()
-    session.headers['User-Agent'] = USER_AGENT
-    response = session.get(YOUTUBE_URL + nextLink)
-    youtubeVidObj = bs4.BeautifulSoup(response.text, "html.parser")
-    stopCrawl = youtubeVidObj.find_all('div', string='No more results')
+    if not foundNext:
+        session = requests.Session()
+        session.headers['User-Agent'] = USER_AGENT
+        response = session.get(YOUTUBE_URL + nextLink)
+        youtubeVidObj = bs4.BeautifulSoup(response.text, "html.parser")
+        stopCrawl = youtubeVidObj.find_all('div', string='No more results')
 
-    print "Crawling next link", len(youtubeVidObj)
     if len(stopCrawl) < 1 and len(nextLink.strip().lstrip()) != 0:
-        print "If loop"
         getTitle(youtubeVidObj)
     else:
-        print "Else loop"
         start = False
         with open(OUTPUT_FILE, "w+") as writeHandle:
             writeHandle.write(json.dumps(searchResults, indent = 2))
         writeHandle.close()
-    div.clear()
-    nextPage.clear()
-    stopCrawl.clear()
 
 
 '''This function gives the following meta-data content for each YouTube Video
@@ -131,7 +137,7 @@ def main(argv):
             vidTitleID = {}
             vidMetaData = []
             getTitle(soup)
-        print '\nDone!'
+        print 'Done!'
     except Exception, e:
         print 'Error:', str(e)
         sys.exit(1)
